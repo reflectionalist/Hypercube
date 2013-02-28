@@ -71,7 +71,7 @@ shift :: Nom -> Lvl -> Int -> UTT -> UTT
 shift nam lvl stp utt = case utt of
   Var ind nom | nom /= nam -> utt
               | ind < lvl  -> utt
-              | otherwise  -> Var nom (ind + stp)
+              | otherwise  -> Var (ind + stp) nom
   All bnd@(nom, _) bod     -> All bnd     $ shift nam (if nam == nom then lvl + 1 else lvl) stp bod
   Clo env bnd@(nom, _) bod -> Clo env bnd $ shift nam (if nam == nom then lvl + 1 else lvl) stp bod
   App opr opd              -> App (shift nam lvl stp opr) (shift nam lvl stp opd)
