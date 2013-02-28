@@ -102,7 +102,7 @@ check ctx utt = case utt of
   All bnd@(nom, ptp) bod -> do
     Typ m <- check ctx ptp
     let ptp' = normalize ptp
-        ctx' = M.insert nom npt ctx
+        ctx' = M.insert nom ptp' ctx
     btp <- check ctx' bod
     case btp of
       Typ n -> return $ Typ (max m n)
