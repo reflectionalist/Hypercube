@@ -1,6 +1,6 @@
 module UTT
   ( UTT
-  , typ, var, als, aps
+  , typ, var, als, aps, tpu, tmu
   , normalize, check )
 where
 
@@ -10,76 +10,83 @@ import Data.Map.Strict as M
 import Data.Sequence as S
 
 
-type Nom = String
+type Nam = String
 type Lvl = Int
 type Ind = Int
 
 data UTT
   = Typ Lvl
-  | Var Ind Nom
-  | All (Nom, UTT) UTT
+  | Var Ind Nam
+  | All (Nam, UTT) UTT
   | App UTT UTT
-  | Clo Env (Nom, UTT) UTT
-  | TpC Nom
-  | TmC Nom
+  | Clo Env (Nam, UTT) UTT
+  | TpC Nam
+  | TmC Nam
   deriving (Show, Eq)
+
+type Env = Map Nam (Seq UTT)
+
 
 typ :: Lvl -> UTT
 typ = Typ
 
-var :: Nom -> UTT
+var :: Nam -> UTT
 var = Var 0
 
-als :: [(Nom, UTT)] -> UTT -> UTT
+als :: [(Nam, UTT)] -> UTT -> UTT
 als = flip (P.foldr All) 
 
 aps :: UTT -> [UTT] -> UTT
 aps = P.foldl App
 
-type Env = Map Nom (Seq UTT)
+tpu :: UTT
+tpu = TpC "Uni"
+
+tmu :: UTT
+tmu = TmC "uni"
+
 
 data Result a
   = None
   | Exact a
   | Beyond
 
-
-search :: Env -> Nom -> Ind -> Result UTT
-search env nom ind = case M.lookup nom env of
+search :: Env -> Nam -> Ind -> Result UTT
+search env nam ind = case M.lookup nam env of
   Just seq | ind < S.length seq -> Exact (S.index seq ind)
            | otherwise          -> Beyond
   Nothing  -> None
 
-extend :: Env -> Nom -> UTT -> Env
-extend env nom utt
-  | M.null env = M.singleton nom (S.singleton utt)
-  | otherwise  = M.insertWith (S.><) nom (S.singleton utt) env
+extend :: Env -> Nam -> UTT -> Env
+extend env nam utt
+  | M.null env = M.singleton nam (S.singleton utt)
+  | otherwise  = M.insertWith (S.><) nam (S.singleton utt) env
 
 norm :: Env -> UTT -> UTT
 norm env utt = case utt of
-  Var ind nom -> case search env nom ind of
+  Var ind nam -> case search env nam ind of
     None      -> utt
     Exact utt -> utt  
-    Beyond    -> Var (ind - 1) nom
+    Beyond    -> Var (ind - 1) nam
   All bnd bod -> Clo env bnd bod
   App opr opd -> case norm env opr of
-    Clo sen bnd@(nom, _) bod -> norm (extend sen nom $ norm env opd) bod
+    Clo sen bnd@(nam, _) bod -> norm (extend sen nam $ norm env opd) bod
     wnf                      -> App wnf (norm env opd)
   _           -> utt
 
-shift :: Nom -> Lvl -> Int -> UTT -> UTT
-shift nam lvl stp utt = case utt of
-  Var ind nom | nom /= nam -> utt
+shift :: Nam -> Lvl -> Int -> UTT -> UTT
+shift nic lvl stp utt = case utt of
+  Var ind nam | nam /= nic -> utt
               | ind < lvl  -> utt
-              | otherwise  -> Var (ind + stp) nom
-  All bnd@(nom, _) bod     -> All bnd     $ shift nam (if nam == nom then lvl + 1 else lvl) stp bod
-  Clo env bnd@(nom, _) bod -> Clo env bnd $ shift nam (if nam == nom then lvl + 1 else lvl) stp bod
-  App opr opd              -> App (shift nam lvl stp opr) (shift nam lvl stp opd)
+              | otherwise  -> Var (ind + stp) nam
+  All bnd@(nam, _) bod     -> All bnd     $ shift nic (if nic == nam then lvl + 1 else lvl) stp bod
+  Clo env bnd@(nam, _) bod -> Clo env bnd $ shift nic (if nic == nam then lvl + 1 else lvl) stp bod
+  App opr opd              -> App (shift nic lvl stp opr) (shift nic lvl stp opd)
 
 form :: UTT -> UTT
 form utt = case utt of
-  Clo env bnd@(nom, _) bod ->
-    let len = extend (M.map (fmap $ shift nom 0 1) env) nom (var nom)
+  Clo env bnd@(nam, _) bod ->
+    let len = extend (M.map (fmap $ shift nam 0 1) env) nam (var nam)
      in All bnd $ form (norm len bod)
   App opr opd -> App (form opr) (form opd)
   _           -> utt
@@ -88,32 +95,30 @@ normalize :: UTT -> UTT
 normalize = form . norm M.empty
 
 
-type Sig = Map Nom UTT
+type Sig = Map Nam UTT
 
 sig :: Sig
 sig = M.fromList [("Uni", Typ 0), ("uni", TpC "Uni")]
 
-type Ctx = Map Nom UTT
+type Ctx = Map Nam UTT
 
 check :: Ctx -> UTT -> Maybe UTT
 check ctx utt = case utt of
   Typ lvl   -> Just $ Typ (lvl + 1)
-  Var _ nom -> M.lookup nom ctx
-  All bnd@(nom, ptp) bod -> do
-    Typ m <- check ctx ptp
+  Var _ nam -> M.lookup nam ctx
+  All bnd@(nam, ptp) bod -> do
+    _ <- check ctx ptp
     let ptp' = normalize ptp
-        ctx' = M.insert nom ptp' ctx
+        ctx' = M.insert nam ptp' ctx
     btp <- check ctx' bod
-    case btp of
-      Typ n -> return $ Typ (max m n)
-      _     -> do Typ _ <- check ctx' btp
-                  return $ All (nom, ptp') (normalize btp)
+    _ <- check ctx' btp
+    return $ All (nam, ptp') (normalize btp)
   App opr opd -> do
-    ftp@(All (nom, ptp) btp) <- check ctx opr
+    ftp@(All (nam, ptp) btp) <- check ctx opr
     atp <- check ctx opd
     if normalize atp == normalize ptp
        then return $ normalize (App ftp opd)
        else Nothing
-  TpC nom -> M.lookup nom sig
-  TmC nom -> M.lookup nom sig
+  TpC nam -> M.lookup nam sig
+  TmC nam -> M.lookup nam sig
 
