@@ -74,19 +74,19 @@ norm env utt = case utt of
     wnf                      -> App wnf (norm env opd)
   _           -> utt
 
-shift :: Nam -> Lvl -> Int -> UTT -> UTT
-shift nic lvl stp utt = case utt of
+shift :: Nam -> Lvl -> UTT -> UTT
+shift nic lvl utt = case utt of
   Var ind nam | nam /= nic -> utt
               | ind < lvl  -> utt
-              | otherwise  -> Var (ind + stp) nam
-  All bnd@(nam, _) bod     -> All bnd     $ shift nic (if nic == nam then lvl + 1 else lvl) stp bod
-  Clo env bnd@(nam, _) bod -> Clo env bnd $ shift nic (if nic == nam then lvl + 1 else lvl) stp bod
-  App opr opd              -> App (shift nic lvl stp opr) (shift nic lvl stp opd)
+              | otherwise  -> Var (ind + 1) nam
+  All bnd@(nam, _) bod     -> All bnd     $ shift nic (if nic == nam then lvl + 1 else lvl) bod
+  Clo env bnd@(nam, _) bod -> Clo env bnd $ shift nic (if nic == nam then lvl + 1 else lvl) bod
+  App opr opd              -> App (shift nic lvl opr) (shift nic lvl opd)
 
 form :: UTT -> UTT
 form utt = case utt of
   Clo env bnd@(nam, _) bod ->
-    let len = extend (M.map (fmap $ shift nam 0 1) env) nam (var nam)
+    let len = extend (M.map (fmap $ shift nam 0) env) nam (var nam)
      in All bnd $ form (norm len bod)
   App opr opd -> App (form opr) (form opd)
   _           -> utt
