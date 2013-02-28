@@ -1,3 +1,10 @@
+module UTT
+  ( UTT
+  , typ, var, als, aps
+  , normalize, check )
+where
+
+
 import Prelude as P
 import Data.Map.Strict as M
 import Data.Sequence as S
@@ -8,7 +15,7 @@ type Lvl = Int
 type Ind = Int
 
 data UTT
-  = TpL Lvl
+  = Typ Lvl
   | Var Ind Nom
   | All (Nom, UTT) UTT
   | App UTT UTT
@@ -16,6 +23,9 @@ data UTT
   | TpC Nom
   | TmC Nom
   deriving (Show, Eq)
+
+typ :: Lvl -> UTT
+typ = Typ
 
 var :: Nom -> UTT
 var = Var 0
@@ -81,22 +91,22 @@ normalize = form . norm M.empty
 type Sig = Map Nom UTT
 
 sig :: Sig
-sig = M.fromList [("Uni", TpL 0), ("uni", TpC "Uni")]
+sig = M.fromList [("Uni", Typ 0), ("uni", TpC "Uni")]
 
 type Ctx = Map Nom UTT
 
 check :: Ctx -> UTT -> Maybe UTT
 check ctx utt = case utt of
-  TpL lvl   -> Just $ TpL (lvl + 1)
+  Typ lvl   -> Just $ Typ (lvl + 1)
   Var _ nom -> M.lookup nom ctx
   All bnd@(nom, ptp) bod -> do
-    TpL m <- check ctx ptp
+    Typ m <- check ctx ptp
     let ptp' = normalize ptp
         ctx' = M.insert nom npt ctx
     btp <- check ctx' bod
     case btp of
-      TpL n -> return $ TpL (max m n)
-      _     -> do TpL _ <- check ctx' btp
+      Typ n -> return $ Typ (max m n)
+      _     -> do Typ _ <- check ctx' btp
                   return $ All (nom, ptp') (normalize btp)
   App opr opd -> do
     ftp@(All (nom, ptp) btp) <- check ctx opr
