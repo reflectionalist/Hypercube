@@ -19,12 +19,9 @@ data UTT
   | Var Ind Nam
   | All (Nam, UTT) UTT
   | App UTT UTT
-  | Clo Env (Nam, UTT) UTT
   | TpC Nam
   | TmC Nam
   deriving (Show, Eq)
-
-type Env = Map Nam (Seq UTT)
 
 
 typ :: Lvl -> UTT
@@ -46,53 +43,37 @@ tmu :: UTT
 tmu = TmC "uni"
 
 
-data Result a
-  = None
-  | Exact a
-  | Beyond
-
-search :: Env -> Nam -> Ind -> Result UTT
-search env nam ind = case M.lookup nam env of
-  Just seq | ind < S.length seq -> Exact (S.index seq ind)
-           | otherwise          -> Beyond
-  Nothing  -> None
-
-extend :: Env -> Nam -> UTT -> Env
-extend env nam utt
-  | M.null env = M.singleton nam (S.singleton utt)
-  | otherwise  = M.insertWith (S.><) nam (S.singleton utt) env
-
-norm :: Env -> UTT -> UTT
-norm env utt = case utt of
-  Var ind nam -> case search env nam ind of
-    None      -> utt
-    Exact utt -> utt  
-    Beyond    -> Var (ind - 1) nam
-  All bnd bod -> Clo env bnd bod
-  App opr opd -> case norm env opr of
-    Clo sen bnd@(nam, _) bod -> norm (extend sen nam $ norm env opd) bod
-    wnf                      -> App wnf (norm env opd)
+normalize :: UTT -> UTT
+normalize utt = case utt of
+  Var _ _     -> utt
+  All bnd bod -> All bnd (normalize bod)
+  App opr opd -> case normalize opr of
+    All (nam, _) bod -> normalize $ substitute nam 0 (normalize opd) bod
+    nf               -> App nf (normalize opd)
   _           -> utt
 
+-- capture-free substitution
+substitute :: Nam -> Lvl -> UTT -> UTT -> UTT
+substitute nic lvl sub utt = case utt of
+  Var ind nam | nam /= nic -> utt
+              | ind < lvl  -> utt
+              | ind > lvl  -> Var (ind - 1) nam
+              | otherwise  -> sub
+  All bnd@(nam, _) bod
+    | nam /= nic -> All bnd $ substitute nic lvl (shift nam 0 sub) bod
+    | otherwise  -> All bnd $ substitute nic (lvl + 1) (shift nam lvl sub) bod
+  App opr opd    -> App (substitute nic lvl sub opr) (substitute nic lvl sub opd)
+  _              -> utt
+
+-- shift named-index by 1
 shift :: Nam -> Lvl -> UTT -> UTT
 shift nic lvl utt = case utt of
   Var ind nam | nam /= nic -> utt
               | ind < lvl  -> utt
               | otherwise  -> Var (ind + 1) nam
-  All bnd@(nam, _) bod     -> All bnd     $ shift nic (if nic == nam then lvl + 1 else lvl) bod
-  Clo env bnd@(nam, _) bod -> Clo env bnd $ shift nic (if nic == nam then lvl + 1 else lvl) bod
-  App opr opd              -> App (shift nic lvl opr) (shift nic lvl opd)
-
-form :: UTT -> UTT
-form utt = case utt of
-  Clo env bnd@(nam, _) bod ->
-    let len = extend (M.map (fmap $ shift nam 0) env) nam (var nam)
-     in All bnd $ form (norm len bod)
-  App opr opd -> App (form opr) (form opd)
-  _           -> utt
-
-normalize :: UTT -> UTT
-normalize = form . norm M.empty
+  All bnd@(nam, _) bod -> All bnd $ shift nic (if nam == nic then lvl + 1 else lvl) bod
+  App opr opd          -> App (shift nic lvl opr) (shift nic lvl opd)
+  _                    -> utt
 
 
 type Sig = Map Nam UTT
