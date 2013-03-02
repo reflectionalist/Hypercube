@@ -117,19 +117,19 @@ equtt = (==)
 
 check :: Ctx -> UTT -> UTT -> Maybe UTT
 check ctx utm utp = case utm of
-  All (nam, ptp) bod -> do
-    Typ _ <- infer ctx ptp
-    let ptp' = normalize ptp
-        ctx' = M.insert nam ptp' ctx
-    case utp of
-      All (nic, vtp) btp
-        | equtt (normalize vtp) ptp' ->
-            do Typ _ <- infer ctx' btp
-               let btp' = normalize btp
-               check ctx' bod btp'
-               return $ All (nam, ptp') btp'
-      Typ _ -> do check ctx' bod utp
-                  return utp
+  All (nam, ptp) bod ->
+    do Typ _ <- infer ctx ptp
+       let ptp' = normalize ptp
+           ctx' = M.insert nam ptp' ctx
+       case utp of
+         All (nic, vtp) btp
+           | equtt (normalize vtp) ptp' ->
+               do Typ _ <- infer ctx' btp
+                  let btp' = normalize btp
+                  check ctx' bod btp'
+                  return $ All (nam, ptp') btp'
+         Typ _ -> do check ctx' bod utp
+                     return utp
   _ -> do rtp <- infer ctx utm
           if equtt rtp (normalize utp)
              then return rtp
@@ -139,19 +139,19 @@ infer :: Ctx -> UTT -> Maybe UTT
 infer ctx utm = case utm of
   Typ lvl   -> Just $ Typ (lvl + 1)
   Var _ nam -> M.lookup nam ctx
-  All bnd@(nam, ptp) bod -> do
-    Typ m <- infer ctx ptp
-    let ptp' = normalize ptp
-        ctx' = M.insert nam ptp' ctx
-    Typ n <- infer ctx' bod
-    return $ Typ (max m n)
-  App opr opd -> do
-    ftp@(All (nam, ptp) btp) <- infer ctx opr
-    check ctx opd ptp
-    return $ normalize (App ftp opd)
-  Ann utm utp -> do
-    check ctx utm utp
-    return (normalize utp)
+  All (nam, ptp) bod ->
+    do Typ m <- infer ctx ptp
+       let ptp' = normalize ptp
+           ctx' = M.insert nam ptp' ctx
+       Typ n <- infer ctx' bod
+       return $ Typ (max m n)
+  App opr opd ->
+    do ftp@(All (nam, ptp) btp) <- infer ctx opr
+       check ctx opd ptp
+       return $ normalize (App ftp opd)
+  Ann utm utp ->
+    do check ctx utm utp
+       return (normalize utp)
   TpC nam -> M.lookup nam sig
   TmC nam -> M.lookup nam sig
 
