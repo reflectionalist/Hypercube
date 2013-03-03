@@ -104,7 +104,7 @@ shift nic lvl utt = case utt of
   App opr opd -> App (shift nic lvl opr) (shift nic lvl opd)
   Ann utm utp -> Ann (shift nic lvl utm) (shift nic lvl utp)
   _           -> utt
-  where shb nic nam lvl bod = shift nic (if nic == nam then lvl + 1 else lvl) bod
+  where shb n m l b = shift n (if n == m then l + 1 else l) b
 
 form :: UTT -> UTT
 form utt = case utt of
@@ -112,9 +112,9 @@ form utt = case utt of
   App opr opd -> App (form opr) (form opd)
   Ann utm utp -> Ann (form utm) (form utp)
   _           -> utt
-  where fb env nam bod =
-          let len = extend (M.map (fmap $ shift nam 0) env) nam (var nam)
-           in form (norm len bod)
+  where fb e n b =
+          let e' = extend (M.map (fmap $ shift n 0) e) n (var n)
+           in form (norm e' b)
 
 normalize :: UTT -> UTT
 normalize = form . norm M.empty
