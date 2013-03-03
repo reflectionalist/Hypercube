@@ -1,11 +1,11 @@
 module UTT
   ( UTT
-  , typ, var, als, aps, ann, nat, nil, suc, bin
+  , typ, var, all, als, app, aps, ann, nat, nil, suc, bin, bis
   , normalize, check, infer, chk, inf )
 where
 
 
-import Prelude as P
+import Prelude as P hiding (all)
 import Data.Map.Strict as M
 import Data.Sequence as S
 
@@ -34,11 +34,17 @@ typ = Typ
 var :: Nam -> UTT
 var = Var 0
 
+all :: (Nam, UTT) -> UTT -> UTT
+all = All
+
 als :: [(Nam, UTT)] -> UTT -> UTT
-als = flip (P.foldr All) 
+als = flip (P.foldr all)
+
+app :: UTT -> UTT -> UTT
+app = App
 
 aps :: UTT -> [UTT] -> UTT
-aps = P.foldl App
+aps = P.foldl app
 
 ann :: UTT -> UTT -> UTT
 ann = Ann
@@ -52,8 +58,11 @@ nil = TmC "Nil"
 suc :: UTT
 suc = TmC "Suc"
 
-bin :: (Nam, UTT) -> UTT -> UTT -> UTT
-bin bnd def bod = App (All bnd bod) def
+bin :: (Nam, UTT, UTT) -> UTT -> UTT
+bin (nam, dtp, dtm) bod = App (All (nam, dtp) bod) dtm
+
+bis :: [(Nam, UTT, UTT)] -> UTT -> UTT
+bis = flip (P.foldr bin)
 
 
 data Result a

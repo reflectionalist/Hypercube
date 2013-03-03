@@ -1,3 +1,4 @@
+import Prelude hiding (all)
 import UTT
 
 
