@@ -1,6 +1,6 @@
 module UTT
   ( UTT
-  , typ, var, als, aps, ann, tpu, tmu
+  , typ, var, als, aps, ann, nat, nil, suc, bin
   , normalize, check, infer, chk, inf )
 where
 
@@ -20,9 +20,9 @@ data UTT
   | All (Nam, UTT) UTT
   | App UTT UTT
   | Ann UTT UTT
-  | Clo Env (Nam, UTT) UTT
   | TpC Nam
   | TmC Nam
+  | Clo Env (Nam, UTT) UTT
   deriving (Show, Eq)
 
 type Env = Map Nam (Seq UTT)
@@ -43,11 +43,17 @@ aps = P.foldl App
 ann :: UTT -> UTT -> UTT
 ann = Ann
 
-tpu :: UTT
-tpu = TpC "Uni"
+nat :: UTT
+nat = TpC "Nat"
 
-tmu :: UTT
-tmu = TmC "uni"
+nil :: UTT
+nil = TmC "Nil"
+
+suc :: UTT
+suc = TmC "Suc"
+
+bin :: (Nam, UTT) -> UTT -> UTT -> UTT
+bin bnd def bod = App (All bnd bod) def
 
 
 data Result a
@@ -108,7 +114,7 @@ normalize = form . norm M.empty
 type Sig = Map Nam UTT
 
 sig :: Sig
-sig = M.fromList [("Uni", Typ 0), ("uni", TpC "Uni")]
+sig = M.fromList [("Nat", Typ 0), ("Nil", TpC "Nat"), ("Suc", All ("_", TpC "Nat") (TpC "Nat"))]
 
 type Ctx = Map Nam UTT
 
