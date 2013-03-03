@@ -121,16 +121,22 @@ type Ctx = Map Nam UTT
 equtt :: UTT -> UTT -> Bool
 equtt = (==)
 
+usort :: Ctx -> UTT -> Maybe UTT
+usort ctx utt = su 0
+  where su l = case check ctx utt (Typ l) of
+          Nothing -> su (l + 1)
+          utp     -> utp
+
 check :: Ctx -> UTT -> UTT -> Maybe UTT
 check ctx utm utp = case utm of
   All (nam, ptp) bod ->
-    do Typ _ <- infer ctx ptp
+    do usort ctx ptp
        let ptp' = normalize ptp
            ctx' = M.insert nam ptp' ctx
        case utp of
          All (nic, vtp) btp
            | equtt (normalize vtp) ptp' ->
-               do Typ _ <- infer ctx' btp
+               do usort ctx' btp
                   let btp' = normalize btp
                   check ctx' bod btp'
                   return $ All (nam, ptp') btp'
@@ -146,11 +152,13 @@ infer ctx utm = case utm of
   Typ lvl   -> Just $ Typ (lvl + 1)
   Var _ nam -> M.lookup nam ctx
   All (nam, ptp) bod ->
-    do Typ m <- infer ctx ptp
+    do usort ctx ptp
        let ptp' = normalize ptp
            ctx' = M.insert nam ptp' ctx
-       Typ n <- infer ctx' bod
-       return $ Typ (max m n)
+       btp <- infer ctx' bod
+       let btp' = normalize btp
+       check ctx' bod btp'
+       return $ All (nam, ptp') btp'
   App opr opd ->
     do ftp@(All (nam, ptp) btp) <- infer ctx opr
        check ctx opd ptp
