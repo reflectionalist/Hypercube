@@ -22,3 +22,7 @@ tps3 = [ als [ ("x1", typ 0), ("x2", all ("y", nat) (typ 0))
        , all ("x1", typ 0) (typ 0)
        , typ 0 ]
 
+id1 = als [("X", typ 0), ("x", var "X")] (var "x")
+
+bi2 = bin ("X", typ 0, nat) (all ("x", var "X") (var "x"))
+
