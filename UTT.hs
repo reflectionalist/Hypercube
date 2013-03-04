@@ -126,7 +126,9 @@ nlz = normalize M.empty
 type Sig = Map Nam UTT
 
 sig :: Sig
-sig = M.fromList [("Nat", Typ 0), ("Nil", TpC "Nat"), ("Suc", All ("_", TpC "Nat") (TpC "Nat"))]
+sig = M.fromList
+  [ ("Nat", Typ 0)
+  , ("Nil", TpC "Nat"), ("Suc", All ("_", TpC "Nat") (TpC "Nat")) ]
 
 type Ctx = Map Nam UTT
 
