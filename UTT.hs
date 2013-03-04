@@ -1,7 +1,7 @@
 module UTT
   ( UTT
   , typ, var, all, als, app, aps, ann, nat, nil, suc, bin, bis
-  , normalize, check, infer, chk, inf )
+  , normalize, nlz, check, chk, infer, inf )
 where
 
 
@@ -116,8 +116,11 @@ form utt = case utt of
           let e' = extend (M.map (fmap $ shift n 0) e) n (var n)
            in form (norm e' b)
 
-normalize :: UTT -> UTT
-normalize = form . norm M.empty
+normalize :: Env -> UTT -> UTT
+normalize env = form . norm env
+
+nlz :: UTT -> UTT
+nlz = normalize M.empty
 
 
 type Sig = Map Nam UTT
@@ -140,19 +143,19 @@ check :: Ctx -> UTT -> UTT -> Maybe UTT
 check ctx utm utp = case utm of
   All (nam, ptp) bod ->
     do usort ctx ptp
-       let ptp' = normalize ptp
+       let ptp' = nlz ptp
            ctx' = M.insert nam ptp' ctx
        case utp of
          All (nic, vtp) btp
-           | equtt (normalize vtp) ptp' ->
+           | equtt (nlz vtp) ptp' ->
                do usort ctx' btp
-                  let btp' = normalize btp
+                  let btp' = nlz btp
                   check ctx' bod btp'
                   return $ All (nam, ptp') btp'
          Typ _ -> do check ctx' bod utp
                      return utp
   _ -> do rtp <- infer ctx utm
-          if equtt rtp (normalize utp)
+          if equtt rtp (nlz utp)
              then return rtp
              else Nothing
 
@@ -162,19 +165,19 @@ infer ctx utm = case utm of
   Var _ nam -> M.lookup nam ctx
   All (nam, ptp) bod ->
     do usort ctx ptp
-       let ptp' = normalize ptp
+       let ptp' = nlz ptp
            ctx' = M.insert nam ptp' ctx
        btp <- infer ctx' bod
-       let btp' = normalize btp
+       let btp' = nlz btp
        check ctx' bod btp'
        return $ All (nam, ptp') btp'
   App opr opd ->
     do ftp@(All (nam, ptp) btp) <- infer ctx opr
        check ctx opd ptp
-       return $ normalize (App ftp opd)
+       return $ nlz (App ftp opd)
   Ann utm utp ->
     do check ctx utm utp
-       return (normalize utp)
+       return (nlz utp)
   TpC nam -> M.lookup nam sig
   TmC nam -> M.lookup nam sig
 
