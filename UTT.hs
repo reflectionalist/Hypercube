@@ -87,7 +87,7 @@ norm env utt = case utt of
     None      -> utt
     Exact utt -> utt  
     Beyond    -> Var (ind - 1) nam
-  All bnd bod -> Clo env bnd bod
+  All (nam, ptp) bod -> Clo env (nam, norm env ptp) bod
   App opr opd -> case norm env opr of
     Clo sen (nam, _) bod -> norm (extend sen nam $ norm env opd) bod
     wnf                  -> App wnf (norm env opd)
@@ -99,8 +99,8 @@ shift nic lvl utt = case utt of
   Var ind nam | nam /= nic -> utt
               | ind < lvl  -> utt
               | otherwise  -> Var (ind + 1) nam
-  All bnd@(nam, _) bod     -> All bnd     (shb nic nam lvl bod)
-  Clo env bnd@(nam, _) bod -> Clo env bnd (shb nic nam lvl bod)
+  All (nam, ptp) bod     -> All     (nam, shift nic lvl ptp) (shb nic nam lvl bod)
+  Clo env (nam, ptp) bod -> Clo env (nam, shift nic lvl ptp) (shb nic nam lvl bod)
   App opr opd -> App (shift nic lvl opr) (shift nic lvl opd)
   Ann utm utp -> Ann (shift nic lvl utm) (shift nic lvl utp)
   _           -> utt
@@ -108,7 +108,7 @@ shift nic lvl utt = case utt of
 
 form :: UTT -> UTT
 form utt = case utt of
-  Clo env bnd@(nam, _) bod -> All bnd (fb env nam bod)
+  Clo env (nam, ptp) bod -> All (nam, form ptp) (fb env nam bod)
   App opr opd -> App (form opr) (form opd)
   Ann utm utp -> Ann (form utm) (form utp)
   _           -> utt
