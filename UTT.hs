@@ -1,6 +1,7 @@
 module UTT
   ( UTT
-  , typ, var, all, als, app, aps, ann, nat, nil, suc, bin, bis
+  , typ, var, all, als, app, aps, ann
+  , nat, nil, suc, arr, ars, bin, bis
   , normalize, nlz, check, chk, infer, inf )
 where
 
@@ -57,6 +58,12 @@ nil = TmC "Nil"
 
 suc :: UTT
 suc = TmC "Suc"
+
+arr :: UTT -> UTT -> UTT
+arr dom cod = All ("_", dom) cod
+
+ars :: [UTT] -> UTT -> UTT
+ars = flip (P.foldr arr)
 
 bin :: (Nam, UTT, UTT) -> UTT -> UTT
 bin (nam, dtp, dtm) bod = App (All (nam, dtp) bod) dtm
@@ -171,7 +178,6 @@ infer ctx utm = case utm of
            ctx' = M.insert nam ptp' ctx
        btp <- infer ctx' bod
        let btp' = nlz btp
-       check ctx' bod btp'
        return $ All (nam, ptp') btp'
   App opr opd ->
     do ftp@(All (nam, ptp) btp) <- infer ctx opr
